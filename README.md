@@ -1,276 +1,522 @@
-# Dynamic ORB — Intelligent Opening Range Breakout System
+# DynamicORB
 
-> **Status:** Prototype under active development. Not production-ready. Strategy is experimental.
+### Machine Learning–Driven Opening Range Breakout Research System
+
+DynamicORB is an experimental quantitative research framework designed to investigate whether machine learning can improve **Opening Range Breakout (ORB)** strategies by adapting signals to changing market conditions.
+
+The system combines historical market data, feature engineering, machine-learning models, time-series validation, and quantitative backtesting to study how market structure and intraday behavior influence ORB performance.
+
+> **Status:** Active Research / Experimental
+> **Domain:** Machine Learning · Quantitative Finance · Time-Series Modeling · Algorithmic Trading
+> **Primary Language:** Python
 
 ---
 
 ## Overview
 
-Dynamic ORB is an intraday algorithmic trading system built for NQ (Nasdaq 100 Futures) targeting prop-firm environments with end-of-day drawdown rules (Topstep, MFF, Take Profit Trader, etc.). The system is designed to answer a single question on each trading day:
+Traditional Opening Range Breakout strategies use a fixed set of rules to determine whether a market breakout is likely to continue.
 
-**"Which opening range timeframe gives the highest-probability breakout today — and is the move real or a fakeout?"**
+DynamicORB explores a different question:
 
-It does this by combining classical ORB mechanics with order flow analysis, machine learning proxies built from institutional-grade MBO (Market-by-Order) tick data, local LLM reasoning, and walk-forward backtesting.
+> **Can machine learning identify market conditions in which an ORB setup is more or less likely to succeed?**
 
-**Current backtest result:** `$56,011` profit on a 2-year 1-minute OHLCV sample set | Sharpe: `0.84`
+Rather than treating every breakout equally, the project is designed to build a pipeline capable of analyzing market context, generating predictive features, estimating breakout outcomes, and evaluating strategy performance under realistic chronological conditions.
 
----
-
-## Core Concept
-
-Standard ORB strategies pick a fixed opening range (e.g., "always use the first 5 minutes"). This system instead treats the opening range duration as a *learned variable*. It trains on historical data to determine which timeframe — from 1 minute to 1 hour — is statistically best-suited for the current session's characteristics.
-
-On top of that, it integrates two custom order flow indicators derived from L3 MBO data to filter entries, distinguishing genuine institutional breakouts from retail fakeouts.
+The long-term objective is to develop an adaptive research framework capable of dynamically adjusting ORB signals based on learned market behavior.
 
 ---
 
-## Architecture Overview
+# Research Objectives
 
-```
-Module.1  → Data ingestion (16-year OHLCV + 8-month L3 MBO)
-    │
-Module.2a → Indicators (Volume Profile/POC + Delta Imbalance + 1.25x ATR)
-    │
-Module.2b → Proxy models (XGBoost — maps OHLCV features → MBO ground truth)
-    │
-Module.3  → ORB strategy variants (1m, 3m, 5m, 15m, 30m, 1h openings)
-    │
-Module.4  → Time series & Monte Carlo testing per variant
-    │
-Module.5  → Walk-forward rolling window backtest + variant weighting
-    |
-Module.6  → Implement weights into a NN
-    │
-Module.7  → Local LLM (llama3.2:1b via Ollama) reasoning layer
-    │
-Module.8  → Final signal: session ORB recommendation + entry/exit logic
-```
+DynamicORB investigates several questions:
+
+* Can market microstructure features improve ORB predictions?
+* Can machine learning identify favorable ORB market regimes?
+* Can models generalize to unseen market periods?
+* How does model performance change across different volatility environments?
+* Can adaptive signals outperform static ORB rules after transaction costs and slippage?
+* How robust are the results to different market regimes?
+* Can model predictions be converted into actionable trading signals?
+
+The project prioritizes **out-of-sample performance and robustness** over maximizing in-sample results.
 
 ---
 
-## Modules
+# System Architecture
 
-### Module 1 — Data Ingestion
+The intended research pipeline is:
 
-Loads and preprocesses two data sources:
-
-**OHLCV (16 years, 2010–2026):**
-Aggregated 1-minute bars for NQ futures stored as CSV. Parses UTC timestamps, filters to front-month outright contracts (excluding spreads like `NQU5-NQZ5`), and casts to memory-efficient float32/int32 dtypes.
-
-**MBO / L3 Tick Data (~8 months):**
-Raw DataBento `.dbn.zst` files organized by date. Contains every individual order book event. The system extracts `action == 'T'` (matched trades) and classifies aggressor side: `'B'` = buyer lifted the ask (bullish), `'A'` = seller hit the bid (bearish). Prices are already in real NQ point units — no conversion needed.
-
-The ~8-month MBO overlap with the full OHLCV history is what enables the proxy model approach described in Module 2b.
-
----
-
-### Module 2a — Indicators
-
-#### Volume Profile with POC
-
-Built from L3 MBO trade data. Every executed trade is bucketed to the nearest NQ tick (`0.25` points). The resulting distribution reveals price acceptance and rejection:
-
-- **POC (Point of Control):** price level with the highest traded volume — the market's "fair value" anchor for the session
-- **HVNs (High Volume Nodes):** levels at or above the 70th percentile — zones of acceptance, likely to act as support/resistance
-- **LVNs (Low Volume Nodes):** levels at or below the 30th percentile — zones of rejection, price moves quickly through these
-- **Profile Skew:** `volume above POC / volume below POC` — measures directional bias
-
-Visualized as a horizontal histogram overlaid on the 1-minute candlestick chart. POC is drawn as an orange dashed line. HVNs are teal, LVNs are dim gray.
-
-#### Delta Imbalance (Volume Delta)
-
-Per-minute order flow imbalance computed from MBO trades:
-
-- **Delta:** `buy_volume − sell_volume` per minute
-- **Delta Ratio:** `|delta| / total_volume` — measures one-sidedness (0–100%)
-- **Buy/Sell Ratio:** `buy_vol / sell_vol` — directional dominance
-
-**Signal Logic:**
-```
-EXECUTE LONG  →  Buy/Sell Ratio > 300%  AND  |Δ|/Volume > 15%
-IGNORE        →  Buy/Sell Ratio < 300%  OR   |Δ|/Volume < 10%
+```text
+Historical Market Data
+        │
+        ▼
+Data Cleaning & Normalization
+        │
+        ▼
+Feature Engineering
+        │
+        ├── Price Features
+        ├── Volume Features
+        ├── Volatility Features
+        ├── Market Structure
+        └── Order-Flow / MBO Features
+        │
+        ▼
+Machine Learning Models
+        │
+        ├── Baseline Models
+        ├── XGBoost
+        └── Neural Networks
+        │
+        ▼
+Time-Series Validation
+        │
+        ├── Chronological Splits
+        ├── Walk-Forward Testing
+        └── Monte Carlo Analysis
+        │
+        ▼
+Signal Generation
+        │
+        ▼
+Quantitative Backtesting
+        │
+        ├── Returns
+        ├── Sharpe Ratio
+        ├── Drawdown
+        ├── Win Rate
+        └── Risk Metrics
+        │
+        ▼
+Research Results
 ```
 
-This filters out fakeouts where price breaks a level but order flow does not confirm it. A move above a range high with a `buy_sell_ratio` of 1.1 and a `delta_ratio` of 5% is a fakeout candidate. A move with a ratio of 4.2 and delta conviction of 22% is institutional.
+---
 
-#### 1.25x ATR — Risk Management
+# Data
 
-A 1.25× ATR multiplier determines the initial stop-loss distance from entry. A 60/40 trailing stop is applied once the trade moves in favor — locking in 60% of unrealized gains while allowing 40% room for continuation.
+DynamicORB is designed to work with historical intraday market data, including:
+
+* OHLCV data
+* Minute-level market data
+* Market-by-order (MBO) / Level-3 data
+* Volume information
+* Intraday price structure
+
+The system is designed around chronological financial data where the temporal relationship between observations is critical.
 
 ---
 
-### Module 2b — Statistical Proxy Models
+# Machine Learning Approach
 
-**The problem:** The volume profile and delta imbalance indicators require MBO data, which is expensive and only covers ~8 months. The OHLCV history goes back 16 years.
+The project investigates multiple model classes rather than relying on a single algorithm.
 
-**The solution:** Train XGBoost regression models during the overlap period (OHLCV features → MBO ground truth), then apply those models to generate *proxy* versions of the indicators for the full 16-year dataset.
+### Baseline Models
 
-#### Proxy 1 — Volume Profile POC (Daily Resolution)
+Simple statistical and machine-learning baselines provide reference points for determining whether more complex models actually provide additional predictive value.
 
-| Cellblock | Purpose |
-|-----------|---------|
-| CB 1 | Build daily OHLCV feature matrix: range, returns, volatility, volume momentum |
-| CB 2 | Join OHLCV features with true MBO POC for the overlap period |
-| CB 3 | Train XGBoost on first 80% of overlap dates (chronological split, never random); validate on last 20% |
-| CB 4 | Apply model to all 16 years → `proxy_poc` column added to OHLCV dataframe |
-| CB 5 | Sanity check: overlay `proxy_poc` vs true POC on validation days |
+### XGBoost
 
-Target variables: `mbo_poc`, `mbo_value_area_high`, `mbo_value_area_low`, `mbo_profile_skew`
+Gradient-boosted decision trees are used to investigate nonlinear relationships between engineered market features and ORB outcomes.
 
-#### Proxy 2 — Delta Imbalance (Minute Resolution)
+### Neural Networks
 
-| Cellblock | Purpose |
-|-----------|---------|
-| CB 6 | Vectorized per-minute feature extraction using `.rolling()` — eliminates O(N²) loop |
-| CB 7 | Join per-minute OHLCV features with true MBO delta targets for overlap period |
-| CB 8 | Train XGBoost regression for `delta_ratio` and `buy_sell_ratio` (80/20 chronological) |
-| CB 9 | Batch vectorized prediction across full 16-year history: `proxy_delta_ratio`, `proxy_buy_sell_ratio` |
-| CB 10 | Sanity check: overlay true vs proxy delta on validation days; mark flagged signals |
+Future iterations explore neural-network architectures for learning more complex representations of intraday market behavior.
 
-All feature engineering uses `.shift(1)` to prevent look-ahead bias. Processing is done day-by-day to avoid memory overload on 500k+ minute bars.
+The goal is not to use the most complicated model possible.
+
+The goal is to determine:
+
+> **Whether additional model complexity produces meaningful out-of-sample improvement.**
 
 ---
 
-### Module 3 — ORB Strategy Variants *(planned)*
+# Feature Engineering
 
-Multiple ORB configurations are defined and compared:
+Potential feature categories include:
 
-- **Variant A:** 1-minute opening range
-- **Variant B:** 3-minute opening range
-- **Variant C:** 5-minute opening range
-- **Variant D:** 15-minute opening range
-- **Variant E:** 30-minute opening range
-- **Variant F:** 60-minute opening range
+### Price
 
-Each variant gets a performance-based weight in Module 5. The session recommendation engine uses these weights to select the best variant for the current day's characteristics.
+* Opening price
+* High / low relationships
+* Opening range size
+* Breakout distance
+* Price momentum
+* Previous-session structure
 
----
+### Volume
 
-### Module 4 — Time Series Testing & Monte Carlo Simulation *(planned)*
+* Relative volume
+* Volume acceleration
+* Opening volume
+* Intraday volume distribution
 
-Evaluates each ORB variant's edge with statistical rigor:
+### Volatility
 
-- **Walk-forward time series testing** to confirm edge persists out-of-sample
-- **Monte Carlo simulation** to estimate the distribution of possible outcomes and drawdown risk
-- Results feed directly into the variant weighting system
+* Realized volatility
+* Opening-range volatility
+* ATR-style measurements
+* Volatility regime
 
----
+### Market Structure
 
-### Module 5 — Walk-Forward Backtest *(planned)*
+* Breakout direction
+* Range expansion
+* Previous highs/lows
+* Intraday trend structure
 
-A rolling window backtest that moves forward through time in fixed steps, retraining the variant selector at each step. This prevents overfitting to any single market regime and validates that the system generalizes.
+### Market Microstructure
 
----
+Where available, MBO/L3 data can be used to investigate:
 
-### Module 6 — Neural Network implementation *(experimental)*
-
-Will be used to weigh each strategy as well as each individual time series forecast per startegy for determing which ORB variant has the highest probability of profiting on the given day.
-
----
-
-### Module 7 — Local LLM Reasoning *(experimental)*
-
-Uses `llama3.2:1b` running locally via **Ollama** for interpretive reasoning on top of the quantitative signals. The LLM layer is not a decision-maker — it acts as a reasoning filter that can contextualize signal conflicts and provide explanatory output for why a particular ORB variant was recommended on a given session.
-
-This module is explicitly experimental. The quantitative pipeline functions independently without it.
-
----
-
-## Data Requirements
-
-| Data Type | Format | Coverage | Source |
-|-----------|--------|----------|--------|
-| NQ 1-minute OHLCV | CSV (Databento) | 2010-06-06 → 2026-01-23 | Databento |
-| NQ L3 MBO | `.dbn.zst` (Databento) | ~8 months (2025-2026) | Databento |
-
-MBO files are organized by date in folders and indexed by a `files_by_date` dictionary at runtime. The system automatically resolves the overlapping date range between both datasets.
+* Order-flow imbalance
+* Bid/ask dynamics
+* Market depth
+* Liquidity conditions
+* Aggressive buying/selling behavior
 
 ---
 
-## Dependencies
+# Preventing Look-Ahead Bias
+
+Financial machine-learning systems are particularly vulnerable to **look-ahead bias**.
+
+DynamicORB therefore prioritizes strict chronological processing.
+
+The system avoids randomly shuffling time-series observations during model evaluation.
+
+Where appropriate, features are shifted so that information from the future cannot enter a prediction made at an earlier point in time.
+
+For example:
 
 ```python
-# Data & numerics
-pandas, numpy, scipy
+df["feature_lagged"] = df["feature"].shift(1)
+```
 
-# Market data
-databento          # MBO .dbn.zst file reading
-yfinance           # supplemental price data
+The objective is to ensure that:
 
-# Machine learning
-xgboost            # POC and delta proxy models
-scikit-learn       # metrics, preprocessing
-torch              # neural network components (Module 3+)
-statsmodels        # time series analysis
+```text
+Information available at time T
+            ↓
+Prediction made at time T
+            ↓
+Future outcome at T + n
+```
 
-# Technical analysis
-ta                 # ATR and other indicators
+rather than:
 
-# Visualization
-matplotlib, seaborn
-
-# LLM (local)
-ollama             # llama3.2:1b runtime (requires Ollama installed)
-
-# Utilities
-pathlib, glob, gc, logging, collections
+```text
+Future information
+        ↓
+Prediction
+        ↓
+Historical outcome
 ```
 
 ---
 
-## File Structure
+# Validation Strategy
 
+Random train/test splitting can produce misleading results in financial time series.
+
+DynamicORB instead emphasizes chronological evaluation.
+
+Conceptually:
+
+```text
+TRAIN
+████████████████
+
+VALIDATION
+                ████████
+
+TEST
+                        ████████
 ```
-project/
-├── strategy.ipynb       # Main notebook (all modules)
-├── prompting.md         # Module.2b specification and design notes
-├── README.md            # This file
-└── data/
-    ├── historical/
-    │   └── NQ/
-    │       ├── 1m OHLCV data/
-    │       │   └── NQ-2010.06.06-2026.01.23-ohlcv-1m.csv
-    │       └── MBO data/
-    │           ├── 2025.07.28-2025.10.08/
-    │           ├── 2025.10.10-2025.12-17/
-    │           ├── 2025.12.18-2026.03.08/
-    │           └── 2026.03.09-2026.05.19/
+
+Future iterations are designed to incorporate rolling walk-forward validation:
+
+```text
+Train ────────► Test
+   Train ────────► Test
+      Train ────────► Test
+         Train ────────► Test
 ```
 
----
-
-## Key Design Decisions
-
-**Chronological splits only.** No random train/test splits anywhere in the system. All models split by date: first 80% of dates for training, last 20% for validation. This is non-negotiable for time series.
-
-**Vectorized feature engineering.** All per-minute feature extraction uses pandas `.rolling()` with `.shift(1)` rather than per-minute Python loops. This reduces a 30+ minute operation to under one second on 500k+ bars.
-
-**Proxy model philosophy.** The proxy approach assumes that OHLCV bar shape carries latent information about the underlying order flow that produced it. The XGBoost models learn this mapping during the overlap period and apply it to the full history. The proxy will not be as accurate as true MBO data, but it provides a statistically grounded approximation that is far better than no signal at all.
-
-**Front-month filtering.** All analysis filters to `^NQ[A-Z]\d$` (outright front-month contracts) and excludes calendar spreads. On days where multiple contracts trade, the highest-volume contract is selected.
+This provides a more realistic estimate of how a model might behave when exposed to previously unseen market conditions.
 
 ---
 
-## Prop-Firm Compatibility
+# Backtesting
 
-Designed for accounts with end-of-day drawdown limits. The 1.25x ATR initial stop ensures position sizing remains within typical prop-firm daily loss thresholds when combined with standard lot sizing. The 60/40 trailing stop structure is designed to protect overnight gains while avoiding premature exits during intraday continuation.
+Model predictions are ultimately evaluated in the context of a trading strategy.
+
+Key metrics include:
+
+| Metric            | Purpose                         |
+| ----------------- | ------------------------------- |
+| Total Return      | Overall strategy performance    |
+| CAGR              | Annualized growth               |
+| Sharpe Ratio      | Risk-adjusted return            |
+| Sortino Ratio     | Downside-risk-adjusted return   |
+| Maximum Drawdown  | Worst peak-to-trough decline    |
+| Win Rate          | Percentage of profitable trades |
+| Profit Factor     | Gross profit / gross loss       |
+| Average Trade     | Expected trade outcome          |
+| Turnover          | Trading activity                |
+| Transaction Costs | Realistic execution impact      |
+
+A model is not considered successful simply because it achieves high classification accuracy.
+
+The objective is to determine whether predictions translate into **robust risk-adjusted trading performance**.
 
 ---
 
-## What Is Not Yet Built
+# Experimental Design
 
-- Module 3 (ORB variant strategy logic)
-- Module 4 (Monte Carlo and time series validation)
-- Module 5 (rolling walk-forward backtest)
-- module 6 (NN implementation)
-- Module 7 (LLM integration — Ollama)
-- Module 8 (final signal aggregation and session recommendation engine)
-- Automated variant weighting system
-- Live execution interface
+DynamicORB follows a research-first methodology.
+
+Models should be compared against progressively stronger baselines:
+
+```text
+Static ORB
+     │
+     ▼
+Simple Statistical Model
+     │
+     ▼
+Traditional Machine Learning
+     │
+     ▼
+Gradient Boosting
+     │
+     ▼
+Neural Network
+     │
+     ▼
+Adaptive / Ensemble Approach
+```
+
+Each increase in complexity should justify itself through measurable out-of-sample improvement.
 
 ---
 
-## Disclaimer
+# Current Development Status
 
-This system is a research prototype. Nothing here constitutes financial advice. Past backtest results do not guarantee future performance. Futures trading involves substantial risk of loss. All strategy development and testing should be conducted in simulation environments before any live deployment.
+| Component                    | Status            |
+| ---------------------------- | ----------------- |
+| Historical data ingestion    | 🟢 Implemented    |
+| Data preprocessing           | 🟢 Implemented    |
+| Feature engineering          | 🟢 Implemented    |
+| Chronological data splitting | 🟢 Implemented    |
+| XGBoost modeling             | 🟢 Implemented    |
+| ORB research framework       | 🟡 Experimental   |
+| Advanced ORB variants        | 🟡 In Development |
+| Walk-forward validation      | 🟡 In Development |
+| Monte Carlo analysis         | 🟡 Planned        |
+| Neural-network modeling      | 🟡 In Development |
+| LLM research layer           | 🔵 Experimental   |
+| Adaptive signal aggregation  | 🔵 Planned        |
+| Live execution               | 🔵 Future Work    |
 
+**Legend**
+
+* 🟢 Implemented
+* 🟡 In Development
+* 🔵 Planned / Experimental
+
+---
+
+# Important Research Disclaimer
+
+This repository is a **research project**, not a production trading system or financial product.
+
+Machine-learning models can overfit historical data and produce results that fail to generalize to future market conditions.
+
+Backtested performance does not guarantee future performance.
+
+Particular attention is given to:
+
+* Overfitting
+* Look-ahead bias
+* Data leakage
+* Survivorship bias
+* Regime changes
+* Transaction costs
+* Slippage
+* Execution assumptions
+
+The purpose of DynamicORB is to investigate these problems scientifically rather than make claims of guaranteed profitability.
+
+---
+
+# Technology Stack
+
+### Programming
+
+* Python
+
+### Data & Scientific Computing
+
+* NumPy
+* pandas
+* SciPy
+* Matplotlib
+
+### Machine Learning
+
+* scikit-learn
+* XGBoost
+* PyTorch
+
+### Quantitative Research
+
+* Time-series analysis
+* Feature engineering
+* Backtesting
+* Walk-forward validation
+* Monte Carlo simulation
+* Market microstructure analysis
+
+### AI Infrastructure
+
+* Local LLM experimentation
+* Ollama
+
+---
+
+# Project Structure
+
+```text
+DynamicORB/
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── features/
+│
+├── notebooks/
+│   └── research/
+│
+├── src/
+│   ├── data/
+│   ├── features/
+│   ├── models/
+│   ├── validation/
+│   ├── backtesting/
+│   └── signals/
+│
+├── tests/
+│
+├── experiments/
+│
+├── configs/
+│
+├── README.md
+├── pyproject.toml
+└── .gitignore
+```
+
+*The structure will evolve as the research framework develops.*
+
+---
+
+# Research Roadmap
+
+### Phase 1 — Data
+
+* [x] Historical market-data ingestion
+* [x] Data preprocessing
+* [x] Initial feature engineering
+* [x] Chronological splitting
+
+### Phase 2 — Modeling
+
+* [x] Establish baseline
+* [x] XGBoost model
+* [ ] Feature selection
+* [ ] Hyperparameter optimization
+* [ ] Neural-network models
+
+### Phase 3 — Validation
+
+* [ ] Rolling walk-forward testing
+* [ ] Monte Carlo analysis
+* [ ] Regime-based evaluation
+* [ ] Out-of-sample evaluation
+* [ ] Statistical significance testing
+
+### Phase 4 — Strategy
+
+* [ ] Multiple ORB variants
+* [ ] Adaptive signal weighting
+* [ ] Transaction-cost modeling
+* [ ] Slippage modeling
+* [ ] Risk management framework
+
+### Phase 5 — Production Research
+
+* [ ] FastAPI inference service
+* [ ] Docker containerization
+* [ ] Model versioning
+* [ ] Experiment tracking
+* [ ] Monitoring
+* [ ] Paper-trading interface
+
+---
+
+# Research Philosophy
+
+DynamicORB is built around a simple principle:
+
+> **A more complicated model is not automatically a better model.**
+
+A strategy that performs exceptionally well on historical data but fails under walk-forward testing is not considered a successful result.
+
+The research process therefore prioritizes:
+
+**Data integrity → Reproducibility → Validation → Robustness → Performance**
+
+rather than:
+
+**Complexity → Optimization → Backtest → Claim**
+
+---
+
+# Future Direction
+
+The long-term objective is to develop DynamicORB into a modular research platform capable of evaluating adaptive trading strategies across different market regimes.
+
+Potential future research includes:
+
+* Multi-model ensembles
+* Regime classification
+* Reinforcement learning
+* Transformer-based time-series models
+* Advanced order-flow modeling
+* Dynamic position sizing
+* Probabilistic signal generation
+* Online learning
+* Model monitoring
+* Paper trading
+* Real-time inference
+
+These features will only be considered successful if they demonstrate measurable improvements under rigorous out-of-sample evaluation.
+
+---
+
+# Author
+
+**Andrew Kozak**
+
+Machine Learning · Quantitative Finance · AI Systems · Software Engineering
+
+GitHub: [@andrewjkdev](https://github.com/andrewjkdev)
+
+---
+
+## Status
+
+**Experimental Research — Not for Live Trading**
+
+DynamicORB is continuously evolving as new experiments, validation methods, and models are developed.
