@@ -1,1 +1,0 @@
-{"frames": ["rth", "sessions"], "report": {"raw_rows": 6949239, "spread_rows_removed": 499577, "front_fallback_to_same_day_leader": 0, "raw_bars": 5286815, "duplicate_ts": 0, "nonfinite_or_nonpositive": 0, "inconsistent_ohlc": 0, "spikes": 0, "clean_bars": 5286815, "clean_rth_bars": 1542458, "sessions": 4016, "rolls": 63, "prev_close_missing": 1}}
