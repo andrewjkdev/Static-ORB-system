@@ -1,8 +1,8 @@
-# DynamicORB
+# Static ORB System
 
 ### Opening Range Breakout research on US ETFs: from a published strategy to a validated, tradeable edge
 
-DynamicORB is a quantitative research project that set out to answer one question:
+Static ORB System is a quantitative research project that set out to answer one question:
 
 > **Can an Opening Range Breakout (ORB) strategy be improved, and validated out of sample, using market context, machine learning and news data?**
 
@@ -342,7 +342,7 @@ echo "YOUR_KEY_HERE" > ~/.fred_api_key && chmod 600 ~/.fred_api_key
 
 ## 11. Project structure
 ```text
-DynamicORB-system/
+ORB-system/
 ├── research.ipynb            # the full research notebook (engine, experiments, results)
 ├── README.md                 # this file
 ├── artifacts/
